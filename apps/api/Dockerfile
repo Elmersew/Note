@@ -1,6 +1,7 @@
 FROM node:22.21.1-bookworm-slim AS base
 ENV PNPM_HOME=/pnpm
 ENV PATH=$PNPM_HOME:$PATH
+RUN apt-get update && apt-get install --yes --no-install-recommends ca-certificates openssl && rm -rf /var/lib/apt/lists/*
 RUN npm install --global pnpm@10.17.1
 WORKDIR /app
 
