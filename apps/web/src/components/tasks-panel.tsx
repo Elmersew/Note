@@ -3,6 +3,7 @@
 import type { TaskDto, TaskPriority, TaskStatus } from '@sticky-notes/contracts';
 import { FormEvent, useState } from 'react';
 import { tasksApi } from '@/lib/api';
+import { randomId } from '@/lib/random-id';
 
 interface TasksPanelProps {
   tasks: TaskDto[];
@@ -25,7 +26,7 @@ export function TasksPanel({ tasks, online, onChanged }: TasksPanelProps) {
     if (!title.trim()) return;
     setError('');
     try {
-      await tasksApi.create({ id: crypto.randomUUID(), title: title.trim(), priority, ...(dueAt ? { dueAt: new Date(dueAt).toISOString() } : {}) });
+      await tasksApi.create({ id: randomId(), title: title.trim(), priority, ...(dueAt ? { dueAt: new Date(dueAt).toISOString() } : {}) });
       setTitle('');
       setDueAt('');
       await onChanged();

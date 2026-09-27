@@ -3,6 +3,7 @@
 import type { CalendarEventDto } from '@sticky-notes/contracts';
 import { FormEvent, useMemo, useState } from 'react';
 import { eventsApi } from '@/lib/api';
+import { randomId } from '@/lib/random-id';
 
 interface CalendarPanelProps {
   events: CalendarEventDto[];
@@ -33,7 +34,7 @@ export function CalendarPanel({ events, online, onChanged }: CalendarPanelProps)
     setError('');
     try {
       await eventsApi.create({
-        id: crypto.randomUUID(),
+        id: randomId(),
         title: title.trim(),
         startsAt: new Date(startsAt).toISOString(),
         endsAt: new Date(endsAt).toISOString(),

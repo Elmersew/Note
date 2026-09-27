@@ -1,5 +1,6 @@
 import type { JsonObject, NoteDto, SyncOperationResult } from '@sticky-notes/contracts';
 import { syncApi } from './api';
+import { randomId } from './random-id';
 import {
   deleteEntityOperations,
   deleteOutboxRecord,
@@ -21,7 +22,7 @@ export async function queueNoteUpsert(userId: string, note: NoteDto): Promise<vo
   await putCachedNote(userId, note, true);
   await enqueueOperation({
     userId,
-    idempotencyKey: crypto.randomUUID(),
+    idempotencyKey: randomId(),
     entityType: 'NOTE',
     entityId: note.id,
     operation: 'UPSERT',
@@ -47,7 +48,7 @@ export async function queueNoteDelete(userId: string, note: NoteDto): Promise<vo
   }
   await enqueueOperation({
     userId,
-    idempotencyKey: crypto.randomUUID(),
+    idempotencyKey: randomId(),
     entityType: 'NOTE',
     entityId: note.id,
     operation: 'DELETE',
@@ -103,7 +104,7 @@ async function handleResult(
 async function localConflictCopy(userId: string, record: OutboxRecord): Promise<NoteDto> {
   const payload = record.payload ?? {};
   const now = new Date().toISOString();
-  const id = crypto.randomUUID();
+  const id = randomId();
   const tagNames = Array.isArray(payload.tags) ? payload.tags.filter((tag): tag is string => typeof tag === 'string') : [];
   const copy: NoteDto = {
     id,
@@ -129,7 +130,7 @@ function stripLocalFields(record: OutboxRecord): Omit<OutboxRecord, 'userId' | '
 
 export function createLocalNote(): CachedNote {
   const now = new Date().toISOString();
-  const id = crypto.randomUUID();
+  const id = randomId();
   return {
     cacheKey: id,
     userId: '',
