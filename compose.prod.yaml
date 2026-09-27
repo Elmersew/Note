@@ -1,0 +1,37 @@
+name: sticky-notes
+
+services:
+  api:
+    image: ${API_IMAGE:-ghcr.io/elmersew/note-api}:${APP_VERSION:-latest}
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    network_mode: host
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      API_PORT: 3001
+    restart: unless-stopped
+    init: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+  web:
+    image: ${WEB_IMAGE:-ghcr.io/elmersew/note-web}:${APP_VERSION:-latest}
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    network_mode: host
+    environment:
+      NODE_ENV: production
+      HOSTNAME: 127.0.0.1
+      PORT: 3000
+    restart: unless-stopped
+    init: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL

@@ -1,0 +1,15 @@
+.git
+.github
+node_modules
+**/node_modules
+.pnpm-store
+.turbo
+**/.turbo
+**/.next
+**/dist
+coverage
+.env
+.env.*
+!.env.example
+*.log
+C*known_hosts

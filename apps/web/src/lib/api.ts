@@ -1,6 +1,6 @@
 import type { AiResult, ApiErrorBody, CalendarEventDto, NoteDto, SessionUser, SyncOperationResult, SyncPullResponse, TagDto, TaskDto } from '@sticky-notes/contracts';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api';
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? '/api';
 
 export class ApiError extends Error {
   constructor(

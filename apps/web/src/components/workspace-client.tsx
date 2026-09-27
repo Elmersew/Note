@@ -15,7 +15,7 @@ import { TasksPanel } from './tasks-panel';
 type Section = 'notes' | 'archive' | 'trash' | 'tasks' | 'calendar';
 type LocalNote = NoteDto & { pending?: boolean };
 
-const websocketUrl = process.env.NEXT_PUBLIC_WS_URL ?? 'http://localhost:3001';
+const websocketUrl = process.env.NEXT_PUBLIC_WS_URL || undefined;
 
 export function WorkspaceClient() {
   const router = useRouter();
