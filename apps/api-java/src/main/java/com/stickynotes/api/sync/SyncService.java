@@ -22,7 +22,10 @@ import com.stickynotes.api.realtime.RealtimeService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.sql.Timestamp;
 import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -60,10 +63,13 @@ public class SyncService {
         } catch (NumberFormatException e) {
             throw ApiException.badRequest("cursor 必须是数字");
         }
-        List<ChangeLogEntity> changes = changeLogMapper.selectList(new QueryWrapper<ChangeLogEntity>()
-                .eq("user_id", userId).gt("cursor", cursor).orderByAsc("cursor").last("LIMIT 500"));
-        List<ChangeDto> dtos = changes.stream().map(NotesService::toChangeDto).toList();
-        String next = changes.isEmpty() ? String.valueOf(cursor) : String.valueOf(changes.get(changes.size() - 1).getCursor());
+        // cursor 是 MySQL 保留字，实体映射会生成不带反引号的列名导致语法错误，改用 selectMaps 手动映射
+        List<Map<String, Object>> rows = changeLogMapper.selectMaps(new QueryWrapper<ChangeLogEntity>()
+                .select("`cursor`", "user_id", "entity_type", "entity_id", "operation", "version", "changed_at")
+                .eq("user_id", userId).gt("`cursor`", cursor).orderByAsc("`cursor`").last("LIMIT 500"));
+        List<ChangeDto> dtos = rows.stream().map(this::toChangeDto).toList();
+        String next = rows.isEmpty() ? String.valueOf(cursor)
+                : String.valueOf(((Number) rows.get(rows.size() - 1).get("cursor")).longValue());
         return new SyncPullResponse(next, dtos);
     }
 
@@ -165,6 +171,22 @@ public class SyncService {
         mutation.setCreatedAt(Instant.now());
         mutationMapper.insert(mutation);
         return new Applied(result, change);
+    }
+
+    private ChangeDto toChangeDto(Map<String, Object> row) {
+        Object changedAt = row.get("changed_at");
+        Instant instant = switch (changedAt) {
+            case Timestamp timestamp -> timestamp.toInstant();
+            case LocalDateTime local -> local.toInstant(ZoneOffset.UTC);
+            case null, default -> null;
+        };
+        return new ChangeDto(
+                String.valueOf(row.get("cursor")),
+                EntityType.valueOf(String.valueOf(row.get("entity_type"))),
+                String.valueOf(row.get("entity_id")),
+                ChangeOperation.valueOf(String.valueOf(row.get("operation"))),
+                ((Number) row.get("version")).intValue(),
+                instant);
     }
 
     private ChangeDto insertChange(String userId, String entityId, ChangeOperation operation, int version) {
