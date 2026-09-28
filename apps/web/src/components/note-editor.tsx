@@ -201,7 +201,7 @@ export function NoteEditor({ note, isTrash, online, onSave, onDelete, onRestore,
             <input value={tagInput} onChange={(event) => { setTagInput(event.target.value); markDirty(); }} placeholder="工作, 灵感" disabled={isTrash} />
           </label>
         </div>
-        <RichTextEditor key={note.id} ref={editorRef} content={content} onChange={updateContent} disabled={isTrash} />
+        <RichTextEditor key={note.id} ref={editorRef} content={note.content} onChange={updateContent} disabled={isTrash} />
       </div>
       {!isTrash && (
         <div className="ai-dock">
