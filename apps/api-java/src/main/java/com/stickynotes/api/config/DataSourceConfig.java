@@ -28,7 +28,7 @@ public class DataSourceConfig {
                 .append(uri.getPort() > 0 ? ":" + uri.getPort() : ":3306")
                 .append(uri.getPath() == null ? "" : uri.getPath())
                 .append(uri.getRawQuery() == null ? "?" : "?" + uri.getRawQuery() + "&")
-                .append("useUnicode=true&characterEncoding=utf8mb4&connectionTimeZone=UTC");
+                .append("useUnicode=true&characterEncoding=UTF-8&connectionTimeZone=UTC");
 
         HikariDataSource dataSource = new HikariDataSource();
         dataSource.setJdbcUrl(jdbc.toString());
