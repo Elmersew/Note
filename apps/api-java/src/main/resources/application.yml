@@ -1,0 +1,39 @@
+server:
+  port: ${API_PORT:3001}
+
+spring:
+  application:
+    name: sticky-notes-api
+  mvc:
+    problemdetails:
+      enabled: false
+  servlet:
+    encoding:
+      charset: UTF-8
+      enabled: true
+      force: true
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+  global-config:
+    banner: false
+
+springdoc:
+  swagger-ui:
+    path: /api/docs
+  api-docs:
+    path: /api/docs/openapi
+
+app:
+  database-url: ${DATABASE_URL:}
+  jwt-secret: ${JWT_SECRET:}
+  web-origin: ${WEB_ORIGIN:http://localhost:3000}
+  cookie-secure: ${COOKIE_SECURE:false}
+  socket-io-port: ${SOCKET_IO_PORT:3002}
+  ai-base-url: ${AI_BASE_URL:https://api.openai.com/v1}
+  ai-api-key: ${AI_API_KEY:}
+  ai-model: ${AI_MODEL:}

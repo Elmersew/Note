@@ -11,9 +11,8 @@
     "lint": "turbo lint",
     "typecheck": "turbo typecheck",
     "test": "turbo test",
-    "db:generate": "pnpm --filter @sticky-notes/api prisma:generate",
-    "db:migrate": "pnpm --filter @sticky-notes/api prisma:migrate",
-    "db:studio": "pnpm --filter @sticky-notes/api prisma:studio"
+    "api:build": "mvn -f apps/api-java -B package -DskipTests",
+    "api:dev": "mvn -f apps/api-java spring-boot:run"
   },
   "devDependencies": {
     "turbo": "2.10.4",

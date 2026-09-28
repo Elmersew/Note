@@ -5,13 +5,14 @@ services:
     image: ${API_IMAGE:-ghcr.io/elmersew/note-api}:${APP_VERSION:-latest}
     build:
       context: .
-      dockerfile: apps/api/Dockerfile
+      dockerfile: apps/api-java/Dockerfile
     network_mode: host
     env_file:
       - .env
     environment:
       NODE_ENV: production
       API_PORT: 3001
+      SOCKET_IO_PORT: 3002
     restart: unless-stopped
     init: true
     security_opt:

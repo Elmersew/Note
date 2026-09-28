@@ -17,7 +17,7 @@ jobs:
       matrix:
         include:
           - name: api
-            dockerfile: apps/api/Dockerfile
+            dockerfile: apps/api-java/Dockerfile
             image: ghcr.io/elmersew/note-api
           - name: web
             dockerfile: apps/web/Dockerfile
