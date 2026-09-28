@@ -175,11 +175,12 @@ public class SyncService {
 
     private ChangeDto toChangeDto(Map<String, Object> row) {
         Object changedAt = row.get("changed_at");
-        Instant instant = switch (changedAt) {
-            case Timestamp timestamp -> timestamp.toInstant();
-            case LocalDateTime local -> local.toInstant(ZoneOffset.UTC);
-            case null, default -> null;
-        };
+        Instant instant = null;
+        if (changedAt instanceof Timestamp timestamp) {
+            instant = timestamp.toInstant();
+        } else if (changedAt instanceof LocalDateTime local) {
+            instant = local.toInstant(ZoneOffset.UTC);
+        }
         return new ChangeDto(
                 String.valueOf(row.get("cursor")),
                 EntityType.valueOf(String.valueOf(row.get("entity_type"))),
