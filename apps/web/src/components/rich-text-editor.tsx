@@ -3,6 +3,8 @@
 import type { JsonObject } from '@sticky-notes/contracts';
 import Image from '@tiptap/extension-image';
 import Placeholder from '@tiptap/extension-placeholder';
+import TaskItem from '@tiptap/extension-task-item';
+import TaskList from '@tiptap/extension-task-list';
 import { EditorContent, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { forwardRef, useEffect, useImperativeHandle } from 'react';
@@ -30,6 +32,8 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
   const editor = useEditor({
     extensions: [
       StarterKit,
+      TaskList,
+      TaskItem.configure({ nested: true }),
       Image.configure({ allowBase64: false, inline: false }),
       Placeholder.configure({ placeholder: '从一个想法开始…' }),
     ],

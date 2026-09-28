@@ -5,10 +5,11 @@ import type { ChangeDto } from '@sticky-notes/contracts';
 import { Server, Socket } from 'socket.io';
 import { SESSION_COOKIE } from '../auth/auth.service';
 import type { SessionPayload } from '../auth/auth.types';
+import { corsOrigin } from '../config/environment';
 
 @WebSocketGateway({
   cors: {
-    origin: (process.env.WEB_ORIGIN ?? 'http://localhost:3000').split(','),
+    origin: corsOrigin(process.env.WEB_ORIGIN ?? 'http://localhost:3000'),
     credentials: true,
   },
 })

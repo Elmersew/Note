@@ -7,13 +7,16 @@ import {
   enqueueOperation,
   getOutbox,
   putCachedNote,
+  rebaseEntityOperations,
   removeCachedNote,
+  updateCachedNoteVersion,
   type CachedNote,
   type OutboxRecord,
 } from './offline-db';
 
 export type SyncCallbacks = {
   onApplied: (note: NoteDto) => void;
+  onVersionAdvanced: (noteId: string, version: number) => void;
   onConflict: (serverNote: NoteDto, localCopy: NoteDto) => void;
   onError: (message: string) => void;
 };
@@ -60,12 +63,12 @@ export async function queueNoteDelete(userId: string, note: NoteDto): Promise<vo
 
 export async function flushNoteOutbox(userId: string, callbacks: SyncCallbacks): Promise<void> {
   if (!navigator.onLine) return;
-  const records = await getOutbox(userId);
-  for (const record of records) {
+  while (navigator.onLine) {
+    const [record] = await getOutbox(userId);
+    if (!record) return;
     try {
       const [result] = await syncApi.push([stripLocalFields(record)]);
-      if (!result) continue;
-      await handleResult(userId, record, result, callbacks);
+      if (!result || !(await handleResult(userId, record, result, callbacks))) return;
     } catch (error) {
       callbacks.onError(error instanceof Error ? error.message : '同步失败');
       return;
@@ -78,20 +81,26 @@ async function handleResult(
   record: OutboxRecord,
   result: SyncOperationResult,
   callbacks: SyncCallbacks,
-): Promise<void> {
+): Promise<boolean> {
   if (result.status === 'failed') {
     callbacks.onError(result.message ?? '同步失败');
-    return;
+    return false;
   }
   await deleteOutboxRecord(record.idempotencyKey);
   if (result.status === 'applied') {
     if (result.entity && 'content' in result.entity) {
-      await putCachedNote(userId, result.entity, false);
-      callbacks.onApplied(result.entity);
+      const hasPending = await rebaseEntityOperations(userId, record.entityId, result.entity.version);
+      if (hasPending) {
+        await updateCachedNoteVersion(userId, record.entityId, result.entity.version);
+        callbacks.onVersionAdvanced(record.entityId, result.entity.version);
+      } else {
+        await putCachedNote(userId, result.entity, false);
+        callbacks.onApplied(result.entity);
+      }
     } else if (record.operation === 'DELETE') {
       await removeCachedNote(userId, record.entityId);
     }
-    return;
+    return true;
   }
 
   if (result.entity && 'content' in result.entity) {
@@ -99,6 +108,7 @@ async function handleResult(
     await putCachedNote(userId, result.entity, false);
     callbacks.onConflict(result.entity, local);
   }
+  return true;
 }
 
 async function localConflictCopy(userId: string, record: OutboxRecord): Promise<NoteDto> {

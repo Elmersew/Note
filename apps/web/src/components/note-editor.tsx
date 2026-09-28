@@ -27,6 +27,7 @@ const aiActions: Array<{ operation: AiOperation; label: string }> = [
 
 export function NoteEditor({ note, isTrash, online, onSave, onDelete, onRestore, onPermanentDelete, onClose }: NoteEditorProps) {
   const editorRef = useRef<RichTextEditorHandle>(null);
+  const editRevision = useRef(0);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState<JsonObject>({ type: 'doc', content: [{ type: 'paragraph' }] });
   const [tagInput, setTagInput] = useState('');
@@ -41,12 +42,18 @@ export function NoteEditor({ note, isTrash, online, onSave, onDelete, onRestore,
   const [question, setQuestion] = useState('');
   const [message, setMessage] = useState('');
 
+  const markDirty = () => {
+    editRevision.current += 1;
+    setDirty(true);
+  };
+
   useEffect(() => {
     setTitle(note?.title ?? '');
     setContent(note?.content ?? { type: 'doc', content: [{ type: 'paragraph' }] });
     setTagInput(note?.tags.map(({ name }) => name).join(', ') ?? '');
     setPinned(note?.isPinned ?? false);
     setArchived(note?.isArchived ?? false);
+    editRevision.current = 0;
     setDirty(false);
     setAiOpen(false);
     setAiResult('');
@@ -56,6 +63,7 @@ export function NoteEditor({ note, isTrash, online, onSave, onDelete, onRestore,
   useEffect(() => {
     if (!note || !dirty || isTrash) return;
     const timer = window.setTimeout(async () => {
+      const revision = editRevision.current;
       setSaving(true);
       const now = new Date().toISOString();
       try {
@@ -69,7 +77,7 @@ export function NoteEditor({ note, isTrash, online, onSave, onDelete, onRestore,
           tags: tagInput.split(/[,，]/).map((name) => name.trim()).filter(Boolean).slice(0, 20).map((name) => ({ id: `local:${name}`, name, color: '#6d5dfc' })),
           updatedAt: now,
         });
-        setDirty(false);
+        if (editRevision.current === revision) setDirty(false);
       } finally {
         setSaving(false);
       }
@@ -88,7 +96,7 @@ export function NoteEditor({ note, isTrash, online, onSave, onDelete, onRestore,
 
   const updateContent = (next: JsonObject) => {
     setContent(next);
-    setDirty(true);
+    markDirty();
   };
 
   async function runAi(operation: AiOperation) {
@@ -133,7 +141,7 @@ export function NoteEditor({ note, isTrash, online, onSave, onDelete, onRestore,
       const suggested = aiResult.split(/[,，\n]/).map((item) => item.trim().replace(/^[-#\s]+/, '')).filter(Boolean);
       const existing = tagInput.split(/[,，]/).map((item) => item.trim()).filter(Boolean);
       setTagInput([...new Set([...existing, ...suggested])].slice(0, 20).join(', '));
-      setDirty(true);
+      markDirty();
     } else if (aiOperation === 'POLISH' && editorRef.current?.selectedText()) {
       editorRef.current.replaceSelection(aiResult);
     } else if (aiOperation !== 'ASK') {
@@ -164,8 +172,8 @@ export function NoteEditor({ note, isTrash, online, onSave, onDelete, onRestore,
         <div className="document-actions">
           {!isTrash ? (
             <>
-              <button type="button" className={isPinned ? 'active' : ''} onClick={() => { setPinned((value) => !value); setDirty(true); }}>{isPinned ? '取消置顶' : '置顶'}</button>
-              <button type="button" className={isArchived ? 'active' : ''} onClick={() => { setArchived((value) => !value); setDirty(true); }}>{isArchived ? '移出归档' : '归档'}</button>
+              <button type="button" className={isPinned ? 'active' : ''} onClick={() => { setPinned((value) => !value); markDirty(); }}>{isPinned ? '取消置顶' : '置顶'}</button>
+              <button type="button" className={isArchived ? 'active' : ''} onClick={() => { setArchived((value) => !value); markDirty(); }}>{isArchived ? '移出归档' : '归档'}</button>
               <button type="button" onClick={shareNote} disabled={!online || note.version === 0}>分享</button>
               <button type="button" className="danger-text" onClick={() => void onDelete(note)}>删除</button>
             </>
@@ -181,7 +189,7 @@ export function NoteEditor({ note, isTrash, online, onSave, onDelete, onRestore,
         <input
           className="note-title-input"
           value={title}
-          onChange={(event) => { setTitle(event.target.value); setDirty(true); }}
+          onChange={(event) => { setTitle(event.target.value); markDirty(); }}
           placeholder="未命名便签"
           maxLength={255}
           disabled={isTrash}
@@ -190,7 +198,7 @@ export function NoteEditor({ note, isTrash, online, onSave, onDelete, onRestore,
           <span>{new Date(note.updatedAt).toLocaleString('zh-CN')}</span>
           <label>
             <span>标签</span>
-            <input value={tagInput} onChange={(event) => { setTagInput(event.target.value); setDirty(true); }} placeholder="工作, 灵感" disabled={isTrash} />
+            <input value={tagInput} onChange={(event) => { setTagInput(event.target.value); markDirty(); }} placeholder="工作, 灵感" disabled={isTrash} />
           </label>
         </div>
         <RichTextEditor key={note.id} ref={editorRef} content={content} onChange={updateContent} disabled={isTrash} />

@@ -32,3 +32,11 @@ export function validateEnvironment(input: Record<string, unknown>): AppEnvironm
     AI_MODEL: String(input.AI_MODEL ?? ''),
   };
 }
+
+export function corsOrigin(webOrigin: string): boolean | string[] {
+  if (webOrigin.trim() === '*') return true;
+  return webOrigin
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+}

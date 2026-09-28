@@ -69,22 +69,7 @@ export async function cacheServerNotes(userId: string, notes: NoteDto[]): Promis
 }
 
 export async function enqueueOperation(operation: OutboxRecord): Promise<void> {
-  const db = await database();
-  const tx = db.transaction('outbox', 'readwrite');
-  const existing = (await tx.store.index('entity').getAll([operation.userId, operation.entityId]))
-    .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
-    .at(-1);
-  if (existing && existing.operation === 'UPSERT' && operation.operation === 'UPSERT') {
-    await tx.store.put({
-      ...operation,
-      idempotencyKey: existing.idempotencyKey,
-      baseVersion: existing.baseVersion,
-      createdAt: existing.createdAt,
-    });
-  } else {
-    await tx.store.put(operation);
-  }
-  await tx.done;
+  await (await database()).put('outbox', operation);
 }
 
 export async function getOutbox(userId: string): Promise<OutboxRecord[]> {
@@ -94,6 +79,22 @@ export async function getOutbox(userId: string): Promise<OutboxRecord[]> {
 
 export async function deleteOutboxRecord(idempotencyKey: string): Promise<void> {
   await (await database()).delete('outbox', idempotencyKey);
+}
+
+export async function rebaseEntityOperations(userId: string, entityId: string, baseVersion: number): Promise<boolean> {
+  const db = await database();
+  const tx = db.transaction('outbox', 'readwrite');
+  const records = await tx.store.index('entity').getAll([userId, entityId]);
+  for (const record of records) await tx.store.put({ ...record, baseVersion });
+  await tx.done;
+  return records.length > 0;
+}
+
+export async function updateCachedNoteVersion(userId: string, noteId: string, version: number): Promise<void> {
+  const db = await database();
+  const key = `${userId}:${noteId}`;
+  const note = await db.get('notes', key);
+  if (note) await db.put('notes', { ...note, version, pending: true });
 }
 
 export async function deleteEntityOperations(userId: string, entityId: string): Promise<void> {

@@ -33,6 +33,7 @@ export function WorkspaceClient() {
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState('');
   const syncing = useRef(false);
+  const flushRequested = useRef(false);
   const socketRef = useRef<Socket | null>(null);
 
   const upsertNoteState = useCallback((note: LocalNote) => {
@@ -47,7 +48,11 @@ export function WorkspaceClient() {
       notesApi.tags(),
     ]);
     const merged = [...active, ...archived, ...trash].filter((note, index, all) => all.findIndex(({ id }) => id === note.id) === index);
-    setNotes(merged);
+    setNotes((current) => {
+      const pending = current.filter((note) => note.pending);
+      const pendingIds = new Set(pending.map(({ id }) => id));
+      return [...pending, ...merged.filter(({ id }) => !pendingIds.has(id))];
+    });
     setTags(nextTags);
     await cacheServerNotes(userId, merged);
     return merged;
@@ -66,20 +71,30 @@ export function WorkspaceClient() {
   }, [refreshEvents, refreshNotes, refreshTasks]);
 
   const flush = useCallback(async (activeUser: SessionUser) => {
-    if (syncing.current || !navigator.onLine) return;
+    if (!navigator.onLine) return;
+    if (syncing.current) {
+      flushRequested.current = true;
+      return;
+    }
     syncing.current = true;
     try {
-      await flushNoteOutbox(activeUser.id, {
-        onApplied: (note) => upsertNoteState({ ...note, pending: false }),
-        onConflict: (serverNote, localCopy) => {
-          setNotes((current) => [localCopy, serverNote, ...current.filter(({ id }) => id !== serverNote.id && id !== localCopy.id)]);
-          setSelectedId(localCopy.id);
-          setNotice('检测到其他设备的修改，已保留一份冲突副本');
-        },
-        onError: (message) => setNotice(message),
-      });
-      const pulled = await syncApi.pull(await getSyncCursor(activeUser.id));
-      await setSyncCursor(activeUser.id, pulled.cursor);
+      do {
+        flushRequested.current = false;
+        await flushNoteOutbox(activeUser.id, {
+          onApplied: (note) => upsertNoteState({ ...note, pending: false }),
+          onVersionAdvanced: (noteId, version) => {
+            setNotes((current) => current.map((note) => note.id === noteId ? { ...note, version, pending: true } : note));
+          },
+          onConflict: (serverNote, localCopy) => {
+            setNotes((current) => [localCopy, serverNote, ...current.filter(({ id }) => id !== serverNote.id && id !== localCopy.id)]);
+            setSelectedId(localCopy.id);
+            setNotice('检测到其他设备的修改，已保留一份冲突副本');
+          },
+          onError: (message) => setNotice(message),
+        });
+        const pulled = await syncApi.pull(await getSyncCursor(activeUser.id));
+        await setSyncCursor(activeUser.id, pulled.cursor);
+      } while (flushRequested.current);
     } finally {
       syncing.current = false;
     }

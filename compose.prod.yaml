@@ -35,3 +35,14 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    command: tunnel --no-autoupdate --url http://localhost:80
+    network_mode: host
+    restart: unless-stopped
+    init: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
