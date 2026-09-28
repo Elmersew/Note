@@ -1,19 +1,20 @@
 # Note
 Three-Platform Interconnected AI Notes Project Plan
-
-采用 **TypeScript Monorepo + 独立 Web 客户端 + React Native 移动/平板客户端 + Node.js 服务端**。
+采用 **Monorepo + 独立 Web 客户端 + React Native 移动/平板客户端 + Java 服务端**。
 
 该方案不是强制三端共用全部 UI，而是共享类型、领域逻辑、API SDK、校验规则、设计变量和编辑器数据协议。在保证原生体验的同时，减少重复开发。
 
+**实际落地（MVP）**：服务端已由 NestJS 重写为 **Spring Boot 3 + MyBatis-Plus（JDK 17）**，API 契约与数据库结构保持不变，前端零改动。Socket.IO 实时通知通过 netty-socketio 在独立端口（3002）提供。
+
 ```text
-手机/iPad/Android 平板（Expo + React Native）
+手机/iPad/Android 平板（Expo + React Native，待开发）
                        ├── REST/JSON：业务读写与增量同步
-Web（Next.js）         ├── WebSocket：变更通知
+Web（Next.js，已实现）  ├── Socket.IO：变更通知（netty-socketio，端口 3002）
                        └── SSE：AI 流式输出
                                   │
-                         API / AI 服务（NestJS）
+                    API / AI 服务（Spring Boot 3 + MyBatis-Plus，端口 3001）
                                   │
-        MySQL 8.4 LTS / Redis / S3 / Qdrant（P1）
+        MySQL 8.4 LTS（utf8mb4 + ngram 全文索引）/ S3 / Qdrant（P1）
                                   │
                  模型网关（可切换不同 AI 供应商）
 ```
@@ -39,19 +40,20 @@ Web（Next.js）         ├── WebSocket：变更通知
 
 ### 8.3 服务端技术
 
-| 范围 | 推荐技术 | 原因 |
+| 范围 | 实际采用 | 原因 |
 | --- | --- | --- |
-| API 服务 | NestJS（Node.js + TypeScript） | 模块化、类型一致，适合认证、同步和 AI 编排接口 |
-| 接口风格 | REST + OpenAPI | 核心 CRUD 和同步易调试、易生成 SDK |
-| 实时通道 | WebSocket | 只发送变更通知、在线状态等实时事件 |
+| API 服务 | Spring Boot 3（JDK 17 + Maven） | JVM 稳定性与生态、团队熟悉度；模块化分层（controller/service/mapper） |
+| 持久层 | MyBatis-Plus | SQL 可控性强，直接复用既有 MySQL 表结构与全文索引 |
+| 接口风格 | REST + OpenAPI（springdoc，`/api/docs`） | 核心 CRUD 和同步易调试、易生成 SDK |
+| 实时通道 | Socket.IO（netty-socketio，端口 3002） | 只发送变更通知等实时事件；客户端 SDK 不变 |
 | AI 流式输出 | Server-Sent Events（SSE） | 单向流式返回简单稳定，适合文本生成 |
-| 主数据库 | MySQL 8.4 LTS（InnoDB） | 事务、关系查询、成熟运维生态和高可用方案适合该业务；统一使用 utf8mb4 |
+| 认证 | JWT（HS256）+ HttpOnly SameSite Cookie | 密钥不变，旧会话平滑过渡 |
+| 主数据库 | MySQL 8.4 LTS（InnoDB） | 事务、关系查询、成熟运维生态；统一 utf8mb4 |
 | 全文检索 | MySQL InnoDB FULLTEXT + ngram parser | MVP 对标题和正文纯文本建立中文全文索引；规模或检索需求提升后再评估独立搜索服务 |
 | 向量检索 | Qdrant（P1 按需引入） | 向量与 MySQL 解耦存储，按用户/空间过滤，并可独立扩缩容 |
-| 缓存/队列 | Redis + BullMQ | 限流、短期缓存、异步摘要、索引和通知任务 |
-| 文件存储 | S3 兼容对象存储 | 管理图片、音频和附件，便于 CDN 与生命周期策略 |
-| ORM | Prisma 或 Drizzle | 二选一，在原型阶段按迁移、类型和团队经验验证后确定 |
-| 可观测性 | OpenTelemetry + 错误监控平台 | 统一采集日志、指标、链路和客户端崩溃 |
+| 缓存/队列 | Redis（P1 按需引入） | 限流、短期缓存、异步摘要、索引和通知任务 |
+| 文件存储 | S3 兼容对象存储（P1） | 管理图片、音频和附件，便于 CDN 与生命周期策略 |
+| 可观测性 | OpenTelemetry + 错误监控平台（P1） | 统一采集日志、指标、链路和客户端崩溃 |
 
 ### 8.4 AI 技术方案
 
