@@ -35,6 +35,12 @@ export function WorkspaceClient() {
   const syncing = useRef(false);
   const flushRequested = useRef(false);
   const socketRef = useRef<Socket | null>(null);
+  const editorDirty = useRef(false);
+
+  const confirmDiscardChanges = useCallback(() => {
+    if (!editorDirty.current) return true;
+    return window.confirm('当前便签有未保存的修改，离开后修改将丢失。确定离开吗？');
+  }, []);
 
   const upsertNoteState = useCallback((note: LocalNote) => {
     setNotes((current) => [note, ...current.filter(({ id }) => id !== note.id)]);
@@ -192,7 +198,7 @@ export function WorkspaceClient() {
   const selectedNote = notes.find(({ id }) => id === selectedId) ?? null;
 
   const createNote = useCallback(async () => {
-    if (!user) return;
+    if (!user || !confirmDiscardChanges()) return;
     const note = createLocalNote();
     const local = { ...note, cacheKey: `${user.id}:${note.id}`, userId: user.id };
     setSection('notes');
@@ -200,7 +206,7 @@ export function WorkspaceClient() {
     setSelectedId(note.id);
     await queueNoteUpsert(user.id, note);
     await flush(user);
-  }, [flush, upsertNoteState, user]);
+  }, [confirmDiscardChanges, flush, upsertNoteState, user]);
 
   const saveNote = useCallback(async (note: NoteDto) => {
     if (!user) return;
@@ -251,11 +257,11 @@ export function WorkspaceClient() {
       <aside className="app-sidebar">
         <div className="sidebar-brand"><span className="brand-mark small">拾</span><div><strong>拾光便签</strong><span>STICKY NOTES</span></div></div>
         <nav aria-label="主导航">
-          <button className={section === 'notes' ? 'active' : ''} onClick={() => setSection('notes')} type="button"><span>◫</span>便签</button>
-          <button className={section === 'tasks' ? 'active' : ''} onClick={() => setSection('tasks')} type="button"><span>✓</span>任务</button>
-          <button className={section === 'calendar' ? 'active' : ''} onClick={() => setSection('calendar')} type="button"><span>□</span>日程</button>
-          <button className={section === 'archive' ? 'active' : ''} onClick={() => setSection('archive')} type="button"><span>⌑</span>归档</button>
-          <button className={section === 'trash' ? 'active' : ''} onClick={() => setSection('trash')} type="button"><span>♲</span>回收站</button>
+          <button className={section === 'notes' ? 'active' : ''} onClick={() => { if (confirmDiscardChanges()) setSection('notes'); }} type="button"><span>◫</span>便签</button>
+          <button className={section === 'tasks' ? 'active' : ''} onClick={() => { if (confirmDiscardChanges()) setSection('tasks'); }} type="button"><span>✓</span>任务</button>
+          <button className={section === 'calendar' ? 'active' : ''} onClick={() => { if (confirmDiscardChanges()) setSection('calendar'); }} type="button"><span>□</span>日程</button>
+          <button className={section === 'archive' ? 'active' : ''} onClick={() => { if (confirmDiscardChanges()) setSection('archive'); }} type="button"><span>⌑</span>归档</button>
+          <button className={section === 'trash' ? 'active' : ''} onClick={() => { if (confirmDiscardChanges()) setSection('trash'); }} type="button"><span>♲</span>回收站</button>
         </nav>
         <div className="sidebar-status"><span className={`status-dot ${online ? 'online' : ''}`} /><div><strong>{online ? '云端已连接' : '离线模式'}</strong><span>{online ? '变更自动同步' : '便签保存在本机'}</span></div></div>
         <div className="user-menu"><span>{user.displayName.slice(0, 1).toUpperCase()}</span><div><strong>{user.displayName}</strong><small>{user.email ?? user.phone}</small></div><button type="button" onClick={() => void logout()}>退出</button></div>
@@ -271,7 +277,7 @@ export function WorkspaceClient() {
             title={sectionTitle}
             onQueryChange={setQuery}
             onTagChange={setSelectedTag}
-            onSelect={setSelectedId}
+            onSelect={(id) => { if (confirmDiscardChanges()) setSelectedId(id); }}
             onCreate={() => void createNote()}
           />
           <NoteEditor
@@ -279,10 +285,11 @@ export function WorkspaceClient() {
             isTrash={section === 'trash'}
             online={online}
             onSave={saveNote}
+            onDirtyChange={(dirty) => { editorDirty.current = dirty; }}
             onDelete={deleteNote}
             onRestore={restoreNote}
             onPermanentDelete={permanentlyDelete}
-            onClose={() => setSelectedId(null)}
+            onClose={() => { if (confirmDiscardChanges()) setSelectedId(null); }}
           />
         </>
       ) : section === 'tasks' ? (

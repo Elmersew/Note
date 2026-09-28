@@ -11,6 +11,7 @@ interface NoteEditorProps {
   isTrash: boolean;
   online: boolean;
   onSave: (note: NoteDto) => Promise<void>;
+  onDirtyChange?: (dirty: boolean) => void;
   onDelete: (note: NoteDto) => Promise<void>;
   onRestore: (note: NoteDto) => Promise<void>;
   onPermanentDelete: (note: NoteDto) => Promise<void>;
@@ -25,7 +26,7 @@ const aiActions: Array<{ operation: AiOperation; label: string }> = [
   { operation: 'CLASSIFY', label: '智能分类' },
 ];
 
-export function NoteEditor({ note, isTrash, online, onSave, onDelete, onRestore, onPermanentDelete, onClose }: NoteEditorProps) {
+export function NoteEditor({ note, isTrash, online, onSave, onDirtyChange, onDelete, onRestore, onPermanentDelete, onClose }: NoteEditorProps) {
   const editorRef = useRef<RichTextEditorHandle>(null);
   const editRevision = useRef(0);
   const [title, setTitle] = useState('');
@@ -61,29 +62,26 @@ export function NoteEditor({ note, isTrash, online, onSave, onDelete, onRestore,
   }, [note?.id]);
 
   useEffect(() => {
-    if (!note || !dirty || isTrash) return;
-    const timer = window.setTimeout(async () => {
-      const revision = editRevision.current;
-      setSaving(true);
-      const now = new Date().toISOString();
-      try {
-        await onSave({
-          ...note,
-          title,
-          content,
-          plainText: normalizeContentText(content),
-          isPinned,
-          isArchived,
-          tags: tagInput.split(/[,，]/).map((name) => name.trim()).filter(Boolean).slice(0, 20).map((name) => ({ id: `local:${name}`, name, color: '#6d5dfc' })),
-          updatedAt: now,
-        });
-        if (editRevision.current === revision) setDirty(false);
-      } finally {
-        setSaving(false);
+    onDirtyChange?.(dirty);
+  }, [dirty, onDirtyChange]);
+
+  useEffect(() => {
+    if (!dirty) return;
+    const handler = (event: BeforeUnloadEvent) => event.preventDefault();
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [dirty]);
+
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
+        event.preventDefault();
+        void save();
       }
-    }, 700);
-    return () => window.clearTimeout(timer);
-  }, [content, dirty, isArchived, isPinned, isTrash, note, onSave, tagInput, title]);
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  });
 
   if (!note) {
     return (
@@ -98,6 +96,28 @@ export function NoteEditor({ note, isTrash, online, onSave, onDelete, onRestore,
     setContent(next);
     markDirty();
   };
+
+  async function save() {
+    if (!note || !dirty || isTrash || saving) return;
+    const revision = editRevision.current;
+    setSaving(true);
+    try {
+      await onSave({
+        ...note,
+        title,
+        content,
+        plainText: normalizeContentText(content),
+        isPinned,
+        isArchived,
+        tags: tagInput.split(/[,，]/).map((name) => name.trim()).filter(Boolean).slice(0, 20).map((name) => ({ id: `local:${name}`, name, color: '#6d5dfc' })),
+        updatedAt: new Date().toISOString(),
+      });
+      if (editRevision.current === revision) setDirty(false);
+      setMessage('已保存');
+    } finally {
+      setSaving(false);
+    }
+  }
 
   async function runAi(operation: AiOperation) {
     setAiOpen(true);
@@ -167,11 +187,12 @@ export function NoteEditor({ note, isTrash, online, onSave, onDelete, onRestore,
         <div className="document-state">
           <button className="mobile-back" type="button" onClick={onClose} aria-label="返回便签列表">←</button>
           <span className={`status-dot ${online ? 'online' : ''}`} />
-          <span>{online ? saving || dirty ? '正在保存' : '已同步' : '离线编辑'}</span>
+          <span>{saving ? '正在保存' : dirty ? '有未保存修改' : online ? '已同步' : '离线编辑'}</span>
         </div>
         <div className="document-actions">
           {!isTrash ? (
             <>
+              <button type="button" className="primary-button" onClick={() => void save()} disabled={!dirty || saving}>{saving ? '保存中…' : '保存'}</button>
               <button type="button" className={isPinned ? 'active' : ''} onClick={() => { setPinned((value) => !value); markDirty(); }}>{isPinned ? '取消置顶' : '置顶'}</button>
               <button type="button" className={isArchived ? 'active' : ''} onClick={() => { setArchived((value) => !value); markDirty(); }}>{isArchived ? '移出归档' : '归档'}</button>
               <button type="button" onClick={shareNote} disabled={!online || note.version === 0}>分享</button>
