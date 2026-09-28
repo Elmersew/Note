@@ -22,6 +22,9 @@ jobs:
           - name: web
             dockerfile: apps/web/Dockerfile
             image: ghcr.io/elmersew/note-web
+          - name: cloudflared
+            dockerfile: deploy/cloudflared/Dockerfile
+            image: ghcr.io/elmersew/note-cloudflared
     steps:
       - uses: actions/checkout@v4
 

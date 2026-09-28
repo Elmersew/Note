@@ -37,7 +37,7 @@ services:
       - ALL
 
   cloudflared:
-    image: cloudflare/cloudflared:latest
+    image: ${CLOUDFLARED_IMAGE:-ghcr.io/elmersew/note-cloudflared}:${APP_VERSION:-latest}
     command: tunnel --no-autoupdate --url http://localhost:80
     network_mode: host
     restart: unless-stopped
